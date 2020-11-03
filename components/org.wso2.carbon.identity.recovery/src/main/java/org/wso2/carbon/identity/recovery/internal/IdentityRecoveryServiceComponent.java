@@ -44,15 +44,7 @@ import org.wso2.carbon.identity.recovery.connector.UserClaimUpdateConfigImpl;
 import org.wso2.carbon.identity.recovery.connector.RecoveryConfigImpl;
 import org.wso2.carbon.identity.recovery.connector.SelfRegistrationConfigImpl;
 import org.wso2.carbon.identity.recovery.connector.UserEmailVerificationConfigImpl;
-import org.wso2.carbon.identity.recovery.handler.AccountConfirmationValidationHandler;
-import org.wso2.carbon.identity.recovery.handler.AdminForcedPasswordResetHandler;
-import org.wso2.carbon.identity.recovery.handler.ChallengeAnswerValidationHandler;
-import org.wso2.carbon.identity.recovery.handler.CodeInvalidationHandler;
-import org.wso2.carbon.identity.recovery.handler.MobileNumberVerificationHandler;
-import org.wso2.carbon.identity.recovery.handler.TenantRegistrationVerificationHandler;
-import org.wso2.carbon.identity.recovery.handler.UserEmailVerificationHandler;
-import org.wso2.carbon.identity.recovery.handler.LiteUserRegistrationHandler;
-import org.wso2.carbon.identity.recovery.handler.UserSelfRegistrationHandler;
+import org.wso2.carbon.identity.recovery.handler.*;
 import org.wso2.carbon.identity.recovery.handler.request.PostAuthnMissingChallengeQuestionsHandler;
 import org.wso2.carbon.identity.recovery.internal.service.impl.password.PasswordRecoveryManagerImpl;
 import org.wso2.carbon.identity.recovery.internal.service.impl.username.UsernameRecoveryManagerImpl;
@@ -109,6 +101,7 @@ public class IdentityRecoveryServiceComponent {
                     , null);
             bundleContext.registerService(AbstractEventHandler.class.getName(),
                     new TenantRegistrationVerificationHandler(), null);
+            bundleContext.registerService(AbstractEventHandler.class.getName(), new AuditLogHandler(), null);
             bundleContext.registerService(IdentityConnectorConfig.class.getName(), new RecoveryConfigImpl(), null);
             bundleContext.registerService(IdentityConnectorConfig.class.getName(), new SelfRegistrationConfigImpl(),
                     null);

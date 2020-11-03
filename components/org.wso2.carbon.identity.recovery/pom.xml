@@ -26,6 +26,7 @@
     <artifactId>org.wso2.carbon.identity.recovery</artifactId>
     <packaging>bundle</packaging>
     <name>WSO2 Carbon - Identity Recovery Management</name>
+        <version>1.4.57</version>
 
     <dependencies>
         <dependency>

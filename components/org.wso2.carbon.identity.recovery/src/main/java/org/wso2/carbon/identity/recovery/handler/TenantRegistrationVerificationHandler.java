@@ -28,6 +28,7 @@ import org.wso2.carbon.identity.recovery.IdentityRecoveryConstants;
 import org.wso2.carbon.identity.recovery.IdentityRecoveryException;
 import org.wso2.carbon.identity.recovery.RecoveryScenarios;
 import org.wso2.carbon.identity.recovery.RecoverySteps;
+import org.wso2.carbon.identity.recovery.model.UserRecoveryData;
 import org.wso2.carbon.identity.recovery.util.Utils;
 import org.wso2.carbon.registry.core.utils.UUIDGenerator;
 import org.wso2.carbon.user.core.UserStoreManager;
@@ -115,7 +116,8 @@ public class TenantRegistrationVerificationHandler extends UserEmailVerification
         setRecoveryData(user, RecoveryScenarios.TENANT_ADMIN_ASK_PASSWORD, RecoverySteps.UPDATE_PASSWORD, uuid);
         lockAccount(user, userStoreManager);
         try {
-            triggerNotification(user, notificationType, uuid, Utils.getArbitraryProperties());
+            triggerNotification(user, notificationType, uuid, Utils.getArbitraryProperties(),
+                    RecoveryScenarios.TENANT_ADMIN_ASK_PASSWORD.name());
         } catch (IdentityRecoveryException e) {
             throw new IdentityEventException("Error while sending  notification.", e);
         }

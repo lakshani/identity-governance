@@ -20,6 +20,9 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.json.JSONObject;
+import org.slf4j.MDC;
+import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.common.model.User;
 import org.wso2.carbon.identity.base.IdentityRuntimeException;
 import org.wso2.carbon.identity.core.bean.context.MessageContext;
@@ -28,10 +31,7 @@ import org.wso2.carbon.identity.event.IdentityEventConstants;
 import org.wso2.carbon.identity.event.IdentityEventException;
 import org.wso2.carbon.identity.event.event.Event;
 import org.wso2.carbon.identity.event.handler.AbstractEventHandler;
-import org.wso2.carbon.identity.recovery.IdentityRecoveryConstants;
-import org.wso2.carbon.identity.recovery.IdentityRecoveryException;
-import org.wso2.carbon.identity.recovery.RecoveryScenarios;
-import org.wso2.carbon.identity.recovery.RecoverySteps;
+import org.wso2.carbon.identity.recovery.*;
 import org.wso2.carbon.identity.recovery.internal.IdentityRecoveryServiceDataHolder;
 import org.wso2.carbon.identity.recovery.model.Property;
 import org.wso2.carbon.identity.recovery.model.UserRecoveryData;
@@ -49,9 +49,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants.AUDIT_FAILED;
+
 public class UserEmailVerificationHandler extends AbstractEventHandler {
 
     private static final Log log = LogFactory.getLog(UserEmailVerificationHandler.class);
+    private static final String TRIGGER_NOTIFICATION_ACTION = "Trigger notification";
+    private static final String NOTIFICATION_TYPE_EMAIL = "EMAIL";
 
     public String getName() {
 
@@ -222,7 +226,7 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
             UserRecoveryData recoveryDataDO = new UserRecoveryData(user, secretKey, recoveryScenario, recoveryStep);
 
             userRecoveryDataStore.store(recoveryDataDO);
-            triggerNotification(user, notificationType, secretKey, Utils.getArbitraryProperties());
+            triggerNotification(user, notificationType, secretKey, Utils.getArbitraryProperties(), recoveryScenario.name());
         } catch (IdentityRecoveryException e) {
             throw new IdentityEventException("Error while sending  notification ", e);
         }
@@ -251,7 +255,8 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
             recoveryDataDO.setRemainingSetIds(verificationPendingEmailAddress);
             userRecoveryDataStore.store(recoveryDataDO);
             triggerNotification(user, IdentityRecoveryConstants.NOTIFICATION_TYPE_VERIFY_EMAIL_ON_UPDATE, secretKey,
-                    Utils.getArbitraryProperties(), verificationPendingEmailAddress);
+                    Utils.getArbitraryProperties(), verificationPendingEmailAddress,
+                    recoveryDataDO.getRecoveryScenario().name());
         } catch (IdentityRecoveryException e) {
             throw new IdentityEventException("Error while sending notification for user: " +
                     user.toFullQualifiedUsername(), e);
@@ -298,14 +303,14 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
 
     }
 
-    protected void triggerNotification(User user, String type, String code, Property[] props) throws
-            IdentityRecoveryException {
+    protected void triggerNotification(User user, String type, String code, Property[] props,
+                                       String recoveryScenario) throws IdentityRecoveryException {
 
-        triggerNotification(user, type, code, props, null);
+        triggerNotification(user, type, code, props, null, recoveryScenario);
     }
 
     private void triggerNotification(User user, String type, String code, Property[] props, String
-            verificationPendingEmailAddress) throws IdentityRecoveryException {
+            verificationPendingEmailAddress, String recoveryScenario) throws IdentityRecoveryException {
 
         if (log.isDebugEnabled()) {
             log.debug("Sending : " + type + " notification to user : " + user.toString());
@@ -334,7 +339,9 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
         Event identityMgtEvent = new Event(eventName, properties);
         try {
             IdentityRecoveryServiceDataHolder.getInstance().getIdentityEventService().handleEvent(identityMgtEvent);
+            auditMessage(TRIGGER_NOTIFICATION_ACTION, NOTIFICATION_TYPE_EMAIL, user, null, FrameworkConstants.AUDIT_SUCCESS, recoveryScenario);
         } catch (IdentityEventException e) {
+            auditMessage(TRIGGER_NOTIFICATION_ACTION, NOTIFICATION_TYPE_EMAIL, user, e.getMessage(), FrameworkConstants.AUDIT_FAILED, recoveryScenario);
             throw Utils.handleServerException(IdentityRecoveryConstants.ErrorMessages.ERROR_CODE_TRIGGER_NOTIFICATION, user
                     .getUserName(), e);
         }
@@ -481,5 +488,22 @@ public class UserEmailVerificationHandler extends AbstractEventHandler {
                         "from recovery store for user: " + user.toFullQualifiedUsername(), e);
             }
         }
+    }
+
+    private void auditMessage(String action, String notificationChannel, User user, String errorMsg,
+                              String result, String recoveryScenario) {
+
+        JSONObject dataObject = new JSONObject();
+        dataObject.put(AuditConstants.REMOTE_ADDRESS_KEY, MDC.get(AuditConstants.REMOTE_ADDRESS_QUERY_KEY));
+        dataObject.put(AuditConstants.USER_AGENT_KEY, MDC.get(AuditConstants.USER_AGENT_QUERY_KEY));
+        dataObject.put(AuditConstants.NOTIFICATION_CHANNEL, notificationChannel);
+        dataObject.put(AuditConstants.SERVICE_PROVIDER_KEY, MDC.get(AuditConstants.SERVICE_PROVIDER_QUERY_KEY));
+        dataObject.put(AuditConstants.USER_STORE_DOMAIN, user.getUserStoreDomain());
+        dataObject.put(AuditConstants.RECOVERY_SCENARIO, recoveryScenario);
+        if (AUDIT_FAILED.equals(result)) {
+            dataObject.put(AuditConstants.ERROR_MESSAGE_KEY, errorMsg);
+        }
+
+        Utils.createAuditMessage(action, user.getUserName(), dataObject, result);
     }
 }
